@@ -40,7 +40,7 @@ def main():
         args.debug_steps = False
 
     if args.scenario is None:
-        scenarios = ['heckstrasse', 'bendplatz', 'frankenberg', 'round']
+        scenarios = ['heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
     else:
         scenarios = [args.scenario]
 

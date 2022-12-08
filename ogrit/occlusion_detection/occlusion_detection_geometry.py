@@ -59,7 +59,7 @@ class OcclusionDetector2D:
 
         occlusions_file_name = f"occlusions/{self.scenario_name}_e{self.episode_idx}.p"
         with open(occlusions_file_name, 'wb') as file:
-            pickle.dump(all_occlusion_data, file)
+            pickle.dump(all_occlusion_data, file) # 序列化
 
     def get_occlusions_frame(self, frame):
         frame_occlusions = {}
@@ -68,7 +68,7 @@ class OcclusionDetector2D:
         # Get the boundaries of each of the vehicles.
         vehicles_in_frame_boxes = [self.get_box(vehicle) for _, vehicle in vehicles_in_frame]
 
-        # Use each of the vehicles in the frame as ego vehicles in turn.
+        # Use each of the vehicles in the frame as ego vehicles in turn. 所有车轮流当ego
         for ego_idx, (ego_id, ego_vehicle) in enumerate(vehicles_in_frame):
 
             # We only want to compute the occlusions for non-parked vehicles.
