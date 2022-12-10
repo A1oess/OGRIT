@@ -11,10 +11,133 @@ from ogrit.core.feature_extraction import FeatureExtractor
 from ogrit.goalrecognition.metrics import entropy
 
 
+class myGoalRecogniser:
+
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        raise NotImplementedError # NotImplementedError意思是如果这个方法没有被子类重写，但是调用了，就会报错
+
+    def batch_goal_probabilities(self, dataset):
+        """
+
+        Args:
+            dataset: DataFrame with columns:
+                path_to_goal_length,in_correct_lane,speed,acceleration,angle_in_lane,vehicle_in_front_dist,
+                vehicle_in_front_speed,oncoming_vehicle_dist,goal_type,agent_id,possible_goal,true_goal,true_goal_type,
+                frame_id,initial_frame_id,fraction_observed
+
+        Returns:
+
+        """
+        dataset = dataset.copy()
+        if 'ego_agent_id' not in dataset.columns:
+            dataset['ego_agent_id'] = 0
+
+        model_likelihoods = []
+
+        for index, row in dataset.iterrows():
+            features = row[list(FeatureExtractor.feature_names) + FeatureExtractor.indicator_features]
+            goal_type = row['goal_type']
+            goal = row['possible_goal']
+            model_likelihood = self.goal_likelihood_from_features(features, goal_type, goal)
+
+            model_likelihoods.append(model_likelihood)
+        dataset['model_likelihood'] = model_likelihoods
+        unique_samples = dataset[['episode', 'agent_id', 'ego_agent_id', 'frame_id', 'true_goal',
+                                  'true_goal_type', 'fraction_observed']].drop_duplicates()
+
+        model_predictions = []
+        predicted_goal_types = []
+        model_probs = []
+        min_probs = []
+        max_probs = []
+        model_entropys = []
+        model_norm_entropys = []
+        true_goal_probs = []
+        cross_entropies = []
+
+        prior_prob = {}
+
+        for index, row in unique_samples.iterrows():
+            indices = ((dataset.episode == row.episode)
+                       & (dataset.agent_id == row.agent_id)
+                       & (dataset.ego_agent_id == row.ego_agent_id)
+                       & (dataset.frame_id == row.frame_id))
+            goals = dataset.loc[indices][['possible_goal', 'goal_type', 'model_likelihood']]
+            indices_prior = ((dataset.episode == row.episode)
+                            & (dataset.agent_id == row.agent_id)
+                            & (dataset.ego_agent_id == row.ego_agent_id)
+                            & (dataset.frame_id == row.frame_id - 25))
+            prior_goals = dataset.loc[indices_prior][['possible_goal', 'goal_type', 'model_likelihood']]
+            if isinstance(self.goal_priors, pd.DataFrame):
+                goals = goals.merge(self.goal_priors, 'left', left_on=['possible_goal', 'goal_type'],
+                                    right_on=['true_goal', 'true_goal_type'])
+            elif (prior_goals.empty):
+                # 如果没有前一帧的估计结果，就用均匀分布
+                num_goal_types = goals.possible_goal.unique().shape[0]
+                goals['prior'] = 1.0 / num_goal_types
+            else:
+                # 用前一帧的结果作为后一帧的先验
+                temp_list = []
+                for index_temp, row_temp in goals.iterrows():
+                    prior_prob_key_exist_flag = (row_temp.goal_type in list(prior_prob.keys()))
+                    if prior_prob_key_exist_flag:
+                        temp_list.append(prior_prob[row_temp.goal_type])
+                    else:
+                        num_goal_types = goals.possible_goal.unique().shape[0]
+                        temp_list.append(1.0 / num_goal_types)
+                goals['prior'] = temp_list
+
+            goals['model_prob'] = goals.model_likelihood * goals.prior
+            goals['model_prob'] = goals.model_prob / goals.model_prob.sum()
+            # prior_prob = {goals['goal_type'] : goals['model_prob']}
+            prior_prob = goals.set_index('goal_type')['model_prob'].to_dict()
+            idx = goals['model_prob'].idxmax()
+
+            goal_prob_entropy = entropy(goals.model_prob)
+            uniform_entropy = entropy(np.ones(goals.model_prob.shape[0])
+                                      / goals.model_prob.shape[0])
+            norm_entropy = goal_prob_entropy / uniform_entropy
+            model_prediction = goals['possible_goal'].loc[idx]
+            predicted_goal_type = goals['goal_type'].loc[idx]
+            predicted_goal_types.append(predicted_goal_type)
+            model_predictions.append(model_prediction)
+            model_prob = goals['model_prob'].loc[idx]
+            true_goal_prob_df = goals['model_prob'].loc[goals.possible_goal == row.true_goal]
+            if true_goal_prob_df.shape[0] == 0:
+                true_goal_prob = 0
+            else:
+                true_goal_prob = float(goals['model_prob'].loc[goals.possible_goal == row.true_goal])
+            cross_entropy = -(xlogy(goals.possible_goal == row.true_goal, goals.model_prob)).mean()
+            max_prob = goals.model_prob.max()
+            min_prob = goals.model_prob.min()
+            max_probs.append(max_prob)
+            min_probs.append(min_prob)
+            model_probs.append(model_prob)
+            model_entropys.append(goal_prob_entropy)
+            model_norm_entropys.append(norm_entropy)
+            true_goal_probs.append(true_goal_prob)
+            cross_entropies.append(cross_entropy)
+
+        unique_samples['model_prediction'] = model_predictions
+        unique_samples['predicted_goal_type'] = predicted_goal_types
+        unique_samples['model_probs'] = model_probs
+        unique_samples['max_probs'] = max_probs
+        unique_samples['min_probs'] = min_probs
+        unique_samples['model_entropy'] = model_entropys
+        unique_samples['model_entropy_norm'] = model_norm_entropys
+        unique_samples['true_goal_prob'] = true_goal_probs
+        unique_samples['cross_entropy'] = cross_entropies
+        return unique_samples
+
+    @classmethod
+    def load(cls, scenario_name):
+        raise NotImplementedError
+
+
 class GoalRecogniser:
 
     def goal_likelihood_from_features(self, features, goal_type, goal):
-        raise NotImplementedError
+        raise NotImplementedError # NotImplementedError意思是如果这个方法没有被子类重写，但是调用了，就会报错
 
     def batch_goal_probabilities(self, dataset):
         """
@@ -66,7 +189,7 @@ class GoalRecogniser:
                 goals = goals.merge(self.goal_priors, 'left', left_on=['possible_goal', 'goal_type'],
                                     right_on=['true_goal', 'true_goal_type'])
             else:
-                # use uniform prior for now
+                # 均匀分布做先验
                 num_goal_types = goals.possible_goal.unique().shape[0]
                 goals['prior'] = 1.0 / num_goal_types
 

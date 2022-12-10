@@ -12,7 +12,7 @@ from ogrit.core.data_processing import get_goal_priors, get_dataset, get_multi_s
 from ogrit.decisiontree.decision_tree import Node
 from ogrit.core.feature_extraction import FeatureExtractor
 from ogrit.decisiontree.handcrafted_trees import scenario_trees
-from ogrit.goalrecognition.goal_recognition import FixedGoalRecogniser, GoalRecogniser
+from ogrit.goalrecognition.goal_recognition import FixedGoalRecogniser, GoalRecogniser, myGoalRecogniser
 
 
 class DecisionTreeGoalRecogniser(FixedGoalRecogniser):
@@ -210,6 +210,126 @@ class GeneralisedGrit(GoalRecogniser):
         goal_probs = np.array(goal_probs)
         goal_probs = goal_probs / goal_probs.sum()
         return goal_probs
+
+
+class myGeneralisedGrit(myGoalRecogniser):
+
+    def __init__(self, priors, decision_trees, feature_extractor=None, goal_locs=None):
+        self.goal_priors = priors
+        self.decision_trees = decision_trees
+        self.feature_extractor = feature_extractor
+        self.goal_locs = goal_locs
+
+    @staticmethod
+    def get_model_name():
+        return 'generalised_grit'
+
+    @classmethod
+    def train(cls, scenario_names: List[str], alpha=1, criterion='gini', min_samples_leaf=1,
+              max_leaf_nodes=None, max_depth=None, ccp_alpha=0):
+        dataset = get_multi_scenario_dataset(scenario_names)
+        decision_trees = {}
+        goal_types = dataset.goal_type.unique()
+        for goal_type in goal_types:
+            dt_training_set = dataset.loc[dataset.goal_type == goal_type]
+            if dt_training_set.shape[0] > 0:
+                X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
+                y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
+                if y.all() or not y.any():
+                    goal_tree = Node(0.5)
+                else:
+                    clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
+                                                      min_samples_leaf=min_samples_leaf, max_depth=max_depth,
+                                                      class_weight='balanced',
+                                                      criterion=criterion, ccp_alpha=ccp_alpha)
+                    clf = clf.fit(X, y)
+                    goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                    goal_tree.set_values(dt_training_set, goal_type, alpha=alpha)
+            else:
+                goal_tree = Node(0.5)
+
+            decision_trees[goal_type] = goal_tree
+        priors = np.ones(len(decision_trees)) / len(decision_trees)
+        return cls(priors, decision_trees)
+
+    def save(self):
+        self.save_images()
+        with open(get_data_dir() + f'{self.get_model_name()}.p', 'wb') as f:
+            pickle.dump(self.decision_trees, f)
+
+    def save_images(self, truncated_edges=None):
+        for goal_type, goal_tree in self.decision_trees.items():
+            pydot_tree = goal_tree.pydot_tree(truncate_edges=truncated_edges)
+            pydot_tree.write_png(get_img_dir() + f'{self.get_model_name()}_{goal_type}.png')
+
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        if goal_type in self.decision_trees:
+            tree = self.decision_trees[goal_type]
+            tree_likelihood = tree.traverse(features)
+        else:
+            tree_likelihood = 0.5
+        return tree_likelihood
+
+    @classmethod
+    def load(cls, scenario_name):
+        with open(get_data_dir() + f'{cls.get_model_name()}.p', 'rb') as f:
+            decision_trees = pickle.load(f)
+        priors = np.ones(len(decision_trees)) / len(decision_trees)
+        scenario_map = Map.parse_from_opendrive(get_base_dir() + f"/scenarios/maps/{scenario_name}.xodr")
+        scenario_config = ScenarioConfig.load(get_base_dir() + f"/scenarios/configs/{scenario_name}.json")
+        feature_extractor = FeatureExtractor(scenario_map)
+        return cls(priors, decision_trees, feature_extractor, scenario_config.goals)
+
+    def goal_likelihood(self, frames, goal, agent_id):
+        features = self.feature_extractor.extract(agent_id, frames, goal)
+        self.decision_trees[features['goal_type']].reset_reached()
+        likelihood = self.decision_trees[features['goal_type']].traverse(features)
+        return likelihood
+
+    def goal_probabilities(self, frames, agent_id):
+        state_history = [f[agent_id] for f in frames]
+        trajectory = VelocityTrajectory.from_agent_states(state_history)
+        typed_goals = self.feature_extractor.get_typed_goals(trajectory, self.goal_locs)
+        goal_probs = []
+        for typed_goal in typed_goals:
+            if typed_goal is None:
+                goal_prob = 0
+            else:
+                # get un-normalised "probability"
+                prior = 1 / len(typed_goals)
+                likelihood = self.goal_likelihood(frames, typed_goal, agent_id)
+                goal_prob = likelihood * prior
+            goal_probs.append(goal_prob)
+        goal_probs = np.array(goal_probs)
+        goal_probs = goal_probs / goal_probs.sum()
+        return goal_probs
+
+
+class myGOIT(myGeneralisedGrit):
+
+    @staticmethod
+    def get_model_name():
+        return 'occlusion_grit'
+
+    @classmethod
+    def train(cls, scenario_names: List[str], alpha=1, criterion='entropy', min_samples_leaf=1,
+              max_leaf_nodes=None, max_depth=None, ccp_alpha=0.):
+        dataset = get_multi_scenario_dataset(scenario_names)
+        decision_trees = {}
+        goal_types = dataset.goal_type.unique()
+        for goal_type in goal_types:
+
+            dt_training_set = dataset.loc[dataset.goal_type == goal_type]
+            if dt_training_set.shape[0] > 0:
+                goal_tree = Node.fit(dt_training_set, goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
+                                     max_depth=max_depth, ccp_alpha=ccp_alpha)
+            else:
+                goal_tree = Node(0.5)
+
+            decision_trees[goal_type] = goal_tree
+
+        priors = np.ones(len(decision_trees)) / len(decision_trees)
+        return cls(priors, decision_trees)
 
 
 class OcclusionGrit(GeneralisedGrit):

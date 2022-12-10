@@ -5,8 +5,8 @@ import argparse
 
 from ogrit.core.base import get_base_dir
 from ogrit.core.data_processing import get_dataset
-from ogrit.decisiontree.dt_goal_recogniser import Grit, GeneralisedGrit, UniformPriorGrit, OcclusionGrit, \
-    OcclusionBaseline, NoPossiblyMissingFeaturesGrit
+from ogrit.decisiontree.dt_goal_recogniser import Grit, GeneralisedGrit, UniformPriorGrit, myGOIT, OcclusionGrit, \
+    OcclusionBaseline, NoPossiblyMissingFeaturesGrit, myGeneralisedGrit
 from ogrit.goalrecognition.goal_recognition import PriorBaseline, UniformPriorBaseline
 
 
@@ -37,8 +37,10 @@ def main():
     model_classes = {'prior_baseline': PriorBaseline,
                      'uniform_prior_baseline': UniformPriorBaseline,
                      'occlusion_grit': OcclusionGrit,
-                     'ogrit': Grit,
+                     'GOIT' : myGOIT,
+                     'grit': Grit,
                      'generalised_grit': GeneralisedGrit,
+                     'my_generalised_grit': myGeneralisedGrit,
                      'grit_uniform_prior': UniformPriorGrit,
                      'occlusion_baseline': OcclusionBaseline,
                      'no_possibly_missing_features_grit': NoPossiblyMissingFeaturesGrit}

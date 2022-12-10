@@ -6,12 +6,13 @@ import itertools
 
 plt.style.use('ggplot')
 
-scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
+scenario_names = ['bendplatz'] # ['heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
 
-model_names = ['generalised_grit', 'occlusion_baseline', 'occlusion_grit']
+model_names = ['occlusion_grit','GOIT'] # ['generalised_grit', 'occlusion_baseline', 'occlusion_grit']
 
 label_map = {'generalised_grit': 'G-GRIT',
              'occlusion_grit': 'OGRIT',
+             'GOIT' : 'GOIT',
              'occlusion_baseline': 'truncated G-GRIT',
              'uniform_prior_baseline': 'uniform prior baseline',
              'grit_uniform_prior': 'GRIT'}
