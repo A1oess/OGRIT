@@ -6,7 +6,7 @@ import itertools
 
 plt.style.use('ggplot')
 
-scenario_names = ['bendplatz'] # ['heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
+scenario_names = ['bendplatz', 'heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
 
 model_names = ['occlusion_grit','GOIT'] # ['generalised_grit', 'occlusion_baseline', 'occlusion_grit']
 

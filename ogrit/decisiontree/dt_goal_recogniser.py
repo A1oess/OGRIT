@@ -10,6 +10,7 @@ from sklearn import tree
 from ogrit.core.base import get_data_dir, get_img_dir, get_base_dir
 from ogrit.core.data_processing import get_goal_priors, get_dataset, get_multi_scenario_dataset
 from ogrit.decisiontree.decision_tree import Node
+from ogrit.decisiontree.mydecision_tree import myNode
 from ogrit.core.feature_extraction import FeatureExtractor
 from ogrit.decisiontree.handcrafted_trees import scenario_trees
 from ogrit.goalrecognition.goal_recognition import FixedGoalRecogniser, GoalRecogniser, myGoalRecogniser
@@ -222,7 +223,7 @@ class myGeneralisedGrit(myGoalRecogniser):
 
     @staticmethod
     def get_model_name():
-        return 'generalised_grit'
+        return 'my_generalised_grit'
 
     @classmethod
     def train(cls, scenario_names: List[str], alpha=1, criterion='gini', min_samples_leaf=1,
@@ -309,7 +310,7 @@ class myGOIT(myGeneralisedGrit):
 
     @staticmethod
     def get_model_name():
-        return 'occlusion_grit'
+        return 'myGOIT'
 
     @classmethod
     def train(cls, scenario_names: List[str], alpha=1, criterion='entropy', min_samples_leaf=1,
@@ -318,19 +319,59 @@ class myGOIT(myGeneralisedGrit):
         decision_trees = {}
         goal_types = dataset.goal_type.unique()
         for goal_type in goal_types:
-
-            dt_training_set = dataset.loc[dataset.goal_type == goal_type]
-            if dt_training_set.shape[0] > 0:
-                goal_tree = Node.fit(dt_training_set, goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
+            
+            indices_observed = ((dataset.goal_type == goal_type) 
+                        & (dataset.vehicle_in_front_missing == False)
+                        & (dataset.oncoming_vehicle_missing == False))
+            indices_occluded = ((dataset.goal_type == goal_type) 
+                        & ((dataset.vehicle_in_front_missing == True)
+                        | (dataset.oncoming_vehicle_missing == True)))
+            dt_training_set_observed = dataset.loc[indices_observed]
+            dt_training_set_observed = dt_training_set_observed.drop(['vehicle_in_front_missing', 'oncoming_vehicle_missing'], axis=1)
+            dt_training_set_occluded = dataset.loc[indices_occluded]
+            dt_training_set_occluded = dt_training_set_occluded.drop(['vehicle_in_front_missing', 'oncoming_vehicle_missing'], axis=1)
+            print(dt_training_set_observed.shape[0])
+            if dt_training_set_observed.shape[0] > 0:
+                goal_tree_observed = myNode.fit(dt_training_set_observed, 'observed', goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
                                      max_depth=max_depth, ccp_alpha=ccp_alpha)
             else:
-                goal_tree = Node(0.5)
+                goal_tree_observed = myNode(0.5)
+            if dt_training_set_occluded.shape[0] > 0:
+                goal_tree_occluded = myNode.fit(dt_training_set_occluded, 'occluded', goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
+                                     max_depth=max_depth, ccp_alpha=ccp_alpha)
+            else:
+                goal_tree_occluded = myNode(0.5)
 
-            decision_trees[goal_type] = goal_tree
+            decision_trees[goal_type] = [goal_tree_observed, goal_tree_occluded]
 
         priors = np.ones(len(decision_trees)) / len(decision_trees)
         return cls(priors, decision_trees)
 
+
+    def save(self):
+        self.save_images()
+        with open(get_data_dir() + f'{self.get_model_name()}.p', 'wb') as f:
+            pickle.dump(self.decision_trees, f)
+
+    def save_images(self, truncated_edges=None):
+        for goal_type, goal_tree in self.decision_trees.items():
+            for i in range(len(goal_tree)):
+                pydot_tree = goal_tree[i].pydot_tree(truncate_edges=truncated_edges)
+                pydot_tree.write_png(get_img_dir() + f'{self.get_model_name()}_{goal_type}_{i}.png')
+
+
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        if goal_type in self.decision_trees:
+            if (features.oncoming_vehicle_missing == False 
+                and features.vehicle_in_front_missing == False):
+                tree = self.decision_trees[goal_type][0]
+                tree_likelihood = tree.traverse(features)
+            else:
+                tree = self.decision_trees[goal_type][1]
+                tree_likelihood = tree.traverse(features)
+        else:
+            tree_likelihood = 0.5
+        return tree_likelihood
 
 class OcclusionGrit(GeneralisedGrit):
 
