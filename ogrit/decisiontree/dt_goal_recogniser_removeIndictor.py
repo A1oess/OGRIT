@@ -9,7 +9,6 @@ from sklearn import tree
 
 from ogrit.core.base import get_data_dir, get_img_dir, get_base_dir
 from ogrit.core.data_processing import get_goal_priors, get_dataset, get_multi_scenario_dataset
-from ogrit.decisiontree.decision_tree import Node
 from ogrit.decisiontree.decision_tree_removeIndicator import myNode
 from ogrit.core.feature_extraction import FeatureExtractor
 from ogrit.decisiontree.handcrafted_trees import scenario_trees
@@ -71,16 +70,16 @@ class DecisionTreeGoalRecogniser(FixedGoalRecogniser):
                         X = dt_training_set[features].to_numpy()
                     y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
                     if y.all() or not y.any():
-                        goal_tree = Node(0.5)
+                        goal_tree = myNode(0.5)
                     else:
                         clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
                             min_samples_leaf=min_samples_leaf, max_depth=max_depth, class_weight='balanced',
                             criterion=criterion, ccp_alpha=ccp_alpha)
                         clf = clf.fit(X, y)
-                        goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                        goal_tree = myNode.from_sklearn(clf, FeatureExtractor.feature_names)
                         goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
                 else:
-                    goal_tree = Node(0.5)
+                    goal_tree = myNode(0.5)
 
                 decision_trees[goal_idx][goal_type] = goal_tree
         return cls(goal_priors, scenario_config, decision_trees, scenario_config.goals)
@@ -120,7 +119,7 @@ class UniformPriorGrit(Grit):
         self.goal_priors['prior'] = 1.0 / self.goal_priors.shape[0]
 
 
-class GeneralisedGrit(GoalRecogniser):
+class myGeneralisedGrit(GoalRecogniser):
 
     def __init__(self, priors, decision_trees, feature_extractor=None, goal_locs=None):
         self.goal_priors = priors
@@ -130,7 +129,7 @@ class GeneralisedGrit(GoalRecogniser):
 
     @staticmethod
     def get_model_name():
-        return 'generalised_grit'
+        return 'my_generalised_grit'
 
     @classmethod
     def train(cls, scenario_names: List[str], alpha=1, criterion='gini', min_samples_leaf=1,
@@ -144,17 +143,17 @@ class GeneralisedGrit(GoalRecogniser):
                 X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
                 y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
                 if y.all() or not y.any():
-                    goal_tree = Node(0.5)
+                    goal_tree = myNode(0.5)
                 else:
                     clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
                                                       min_samples_leaf=min_samples_leaf, max_depth=max_depth,
                                                       class_weight='balanced',
                                                       criterion=criterion, ccp_alpha=ccp_alpha)
                     clf = clf.fit(X, y)
-                    goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                    goal_tree = myNode.from_sklearn(clf, FeatureExtractor.feature_names)
                     goal_tree.set_values(dt_training_set, goal_type, alpha=alpha)
             else:
-                goal_tree = Node(0.5)
+                goal_tree = myNode(0.5)
 
             decision_trees[goal_type] = goal_tree
         priors = np.ones(len(decision_trees)) / len(decision_trees)
@@ -190,6 +189,11 @@ class GeneralisedGrit(GoalRecogniser):
 
     def goal_likelihood(self, frames, goal, agent_id):
         features = self.feature_extractor.extract(agent_id, frames, goal)
+        # for indicator in self.feature_extractor.indicator_features:
+        #     if indicator in features.keys():
+        #         features.pop(indicator)
+        print(type(features))
+        print(features)
         self.decision_trees[features['goal_type']].reset_reached()
         likelihood = self.decision_trees[features['goal_type']].traverse(features)
         return likelihood
@@ -213,12 +217,11 @@ class GeneralisedGrit(GoalRecogniser):
         return goal_probs
 
 
-
-class OcclusionGrit(GeneralisedGrit):
+class myGOIT(myGeneralisedGrit):
 
     @staticmethod
     def get_model_name():
-        return 'occlusion_grit'
+        return 'GOIT'
 
     @classmethod
     def train(cls, scenario_names: List[str], alpha=1, criterion='entropy', min_samples_leaf=1,
@@ -227,30 +230,19 @@ class OcclusionGrit(GeneralisedGrit):
         decision_trees = {}
         goal_types = dataset.goal_type.unique()
         for goal_type in goal_types:
-
+            # if goal_type == "turn-right":
+            #     print("stop")
             dt_training_set = dataset.loc[dataset.goal_type == goal_type]
             if dt_training_set.shape[0] > 0:
-                goal_tree = Node.fit(dt_training_set, goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
+                goal_tree = myNode.fit(dt_training_set, goal_type, alpha=alpha, min_samples_leaf=min_samples_leaf,
                                      max_depth=max_depth, ccp_alpha=ccp_alpha)
             else:
-                goal_tree = Node(0.5)
+                goal_tree = myNode(0.5)
 
             decision_trees[goal_type] = goal_tree
 
         priors = np.ones(len(decision_trees)) / len(decision_trees)
         return cls(priors, decision_trees)
-
-
-class OcclusionBaseline(GeneralisedGrit):
-
-    def goal_likelihood_from_features(self, features, goal_type, goal):
-        if goal_type in self.decision_trees:
-            tree = self.decision_trees[goal_type]
-            tree_likelihood = tree.traverse(features, terminate_on_missing=True)
-        else:
-            tree_likelihood = 0.5
-        return tree_likelihood
-
 
 class NoPossiblyMissingFeaturesGrit(Grit):
 

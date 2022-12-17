@@ -13,24 +13,35 @@ from sklearn.tree import _tree
 from ogrit.core.feature_extraction import FeatureExtractor
 
 
-class Decision:
+class myDecision:
 
     def __init__(self, feature_name, true_child, false_child):
         self.feature_name = feature_name
         self.true_child = true_child
         self.false_child = false_child
+        self.direction_flag = 'No NEED DIR_FLAG'
+        
 
     def rule(self, features):
         raise NotImplementedError
 
     def select_child(self, features):
-        if self.rule(features):
-            return self.true_child
+        possibly_missing_features = FeatureExtractor.possibly_missing_features
+        if (self.feature_name in possibly_missing_features and 
+            features[FeatureExtractor.possibly_missing_features[self.feature_name]] is True):
+            if self.direction_flag == 'leftt':
+                return self.true_child
+            elif self.direction_flag == 'rightt':
+                return self.false_child
         else:
-            return self.false_child
+            if self.rule(features):
+                return self.true_child
+            else:
+                return self.false_child
 
 
-class BinaryDecision(Decision):
+class myBinaryDecision(myDecision):
+
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -42,7 +53,7 @@ class BinaryDecision(Decision):
         return self.feature_name + '\n'
 
 
-class ThresholdDecision(Decision):
+class myThresholdDecision(myDecision):
 
     def __init__(self, threshold, *args):
         super().__init__(*args)
@@ -62,21 +73,22 @@ class ThresholdDecision(Decision):
             return '{} > {:.2f}\n'.format(self.feature_name, self.threshold)
 
 
-class Node:
+class myNode:
     def __init__(self, value, decision=None, level=0):
         self.value = value
         self.decision = decision
         self.counts = [None, None]
         self.reached = False
         self.level = level
+        # self.direction_flag = 'No NEED DIR_FLAG'
 
     def traverse(self, features, terminate_on_missing=False):
         self.reached = True
         current_node = self
         while current_node.decision is not None:
             if (terminate_on_missing
-                    and current_node.decision.feature_name in FeatureExtractor.possibly_missing_features
-                    and features[FeatureExtractor.possibly_missing_features[current_node.decision.feature_name]]):
+                    and current_node.decision.feature_name in FeatureExtractor.possibly_missing_features):
+                    # and features[FeatureExtractor.possibly_missing_features[current_node.decision.feature_name]]):
                 # feature is missing
                 return current_node.value
             current_node = current_node.decision.select_child(features)
@@ -123,16 +135,16 @@ class Node:
 
         def recurse(node):
             value = tree_.value[node][0][1] / tree_.value[node].sum()
-            out_node = Node(value)
+            out_node = myNode(value)
             if tree_.feature[node] != _tree.TREE_UNDEFINED:
                 name = feature_name[node]
                 threshold = tree_.threshold[node]
                 true_child = recurse(tree_.children_right[node])
                 false_child = recurse(tree_.children_left[node])
                 if feature_types[name] in ['scalar', 'integer']:
-                    out_node.decision = ThresholdDecision(threshold, name, true_child, false_child)
+                    out_node.decision = myThresholdDecision(threshold, name, true_child, false_child)
                 elif feature_types[name] == 'binary':
-                    out_node.decision = BinaryDecision(name, true_child, false_child)
+                    out_node.decision = myBinaryDecision(name, true_child, false_child)
                 else:
                     raise ValueError('invalid feature type')
             return out_node
@@ -185,8 +197,7 @@ class Node:
         possibly_missing_features = FeatureExtractor.possibly_missing_features
         indicator_features = FeatureExtractor.indicator_features
 
-        def _recursive_split(node: Node, node_samples: pd.DataFrame, true_indicators, false_indicators):
-
+        def _recursive_split(node: myNode, node_samples: pd.DataFrame):
             if (node_samples.has_goal.nunique() != 1
                     and node_samples.shape[0] > min_samples_leaf
                     and (max_depth is None or node.level < max_depth)):
@@ -195,14 +206,14 @@ class Node:
                 best_impurity_decrease = 0
                 best_feature = None
                 best_threshold = None
+                best_direction_flag = 'No NEED DIR_FLAG'
                 impurity = cls.cross_entropy(node_samples, goal_normaliser, non_goal_normaliser, alpha)
 
                 Nn = node_samples.shape[0]
                 Nng = node_samples.loc[node_samples.has_goal].shape[0]
 
-                allowed_features = [f for f in (list(base_features) + indicator_features) if
-                                    f not in possibly_missing_features
-                                    or possibly_missing_features[f] in false_indicators]
+                allowed_features = [f for f in (list(base_features)) if
+                                    f not in possibly_missing_features]
 
                 for feature in allowed_features:
                     # find best threshold
@@ -215,23 +226,37 @@ class Node:
                         best_threshold = threshold
 
                 # look ahead by one node when considering indicator + possibly missing features
-                unknown_missing_features = [f for f in possibly_missing_features if
-                                            possibly_missing_features[f] not in (true_indicators + false_indicators)]
+                unknown_missing_features = [f for f in possibly_missing_features]
                 for feature in unknown_missing_features:
                     indicator = possibly_missing_features[feature]
-                    indicator_impurity_decrease, indicator_threshold = cls.get_best_threshold(
-                        node_samples, indicator, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser, impurity)
-                    child_samples = node_samples.loc[~node_samples[indicator]]
-                    child_impurity = cls.cross_entropy(child_samples, goal_normaliser, non_goal_normaliser, alpha)
-                    child_impurity_decrease, _ = cls.get_best_threshold(
-                        child_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser,
-                        child_impurity)
+                    # base_samples = node_samples.loc[node_samples[indicator]] # 所有该特征未缺失的样本
+                    base_samples = node_samples # 用全部特征做训练，但是对盲区特征节点额外标注
+                    base_impurity = cls.cross_entropy(base_samples, goal_normaliser, non_goal_normaliser, alpha)
+                    base_impurity_decrease, base_threshold = cls.get_best_threshold(
+                        node_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser, base_impurity)
+                    
+                    unknown_samples = node_samples.loc[~node_samples[indicator]]
+                    left_unknown_samples = unknown_samples.loc[unknown_samples[feature] > base_threshold]
+                    left_impurity = cls.cross_entropy(left_unknown_samples, goal_normaliser, non_goal_normaliser, alpha)
+                    # left_impurity_decrease, left_threshold = cls.get_best_threshold(
+                    #     left_unknown_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser, left_impurity)
+                    right_unknown_samples = unknown_samples.loc[unknown_samples[feature] <= base_threshold]
+                    right_impurity = cls.cross_entropy(right_unknown_samples, goal_normaliser, non_goal_normaliser, alpha)
+                    # right_impurity_decrease, right_threshold = cls.get_best_threshold(
+                    #     right_unknown_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser, right_impurity)
+                    if left_impurity < right_impurity:
+                        cur_direction_flag = 'leftt'
+                    else:
+                        cur_direction_flag = 'rightt'
 
-                    impurity_decrease = indicator_impurity_decrease + child_impurity_decrease - ccp_alpha
+                    
+
+                    impurity_decrease = base_impurity_decrease
                     if impurity_decrease > best_impurity_decrease:
                         best_impurity_decrease = impurity_decrease
-                        best_feature = indicator
-                        best_threshold = 0.5
+                        best_feature = feature
+                        best_threshold = base_threshold
+                        best_direction_flag = cur_direction_flag
 
                 if best_impurity_decrease > 0:
                     true_idx = node_samples[best_feature] > best_threshold
@@ -242,29 +267,67 @@ class Node:
                     false_child = cls.get_node(false_samples, node.level + 1, goal_normaliser,
                                                non_goal_normaliser, alpha)
                     if best_feature in indicator_features or FeatureExtractor.feature_names[best_feature] == 'binary':
-                        node.decision = BinaryDecision(best_feature, true_child, false_child)
+                        node.decision = myBinaryDecision(best_feature, true_child, false_child)
                     else:
-                        node.decision = ThresholdDecision(best_threshold, best_feature, true_child, false_child)
+                        node.decision = myThresholdDecision(best_threshold, best_feature, true_child, false_child)
                     true_idx = node.decision.rule(node_samples)
-                    if best_feature in indicator_features:
-                        true_child_true_indicators = true_indicators + [best_feature]
-                        false_child_false_indicators = false_indicators + [best_feature]
+                    if best_feature in possibly_missing_features:
+                        node.decision.direction_flag = best_direction_flag
                     else:
-                        true_child_true_indicators = true_indicators
-                        false_child_false_indicators = false_indicators
-                    _recursive_split(node.decision.true_child, node_samples.loc[true_idx],
-                                     true_child_true_indicators, false_indicators)
-                    _recursive_split(node.decision.false_child, node_samples.loc[~true_idx],
-                                     true_indicators, false_child_false_indicators)
+                        node.decision.direction_flag = 'No NEED DIR_FLAG'
+                    _recursive_split(node.decision.true_child, node_samples.loc[true_idx])
+                    _recursive_split(node.decision.false_child, node_samples.loc[~true_idx])
             return node
 
         root = cls.get_node(goal_training_samples, 0, goal_normaliser, non_goal_normaliser, alpha)
-        _recursive_split(root, goal_training_samples, [], [])
+        _recursive_split(root, goal_training_samples)
 
         if ccp_alpha > 0:
             root.prune(goal_training_samples, N, ccp_alpha, goal_normaliser, non_goal_normaliser, alpha)
 
         return root
+
+    @staticmethod
+    def my_get_best_threshold(node_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser,
+                           impurity, test_samples, flag=True):
+
+        df = node_samples[[feature, 'has_goal']].sort_values(feature)
+        df_test = test_samples[[feature, 'has_goal']].sort_values(feature)
+        if(flag):
+            df['Nnt'] = np.arange(1, df.shape[0] + df.shape[0] + 1)
+            df['Nng_true'] = df.has_goal.cumsum() + df_test.has_goal.cumsum()
+        else:
+            df['Nnt'] = np.arange(1, df.shape[0] + 1)
+            df['Nng_true'] = df.has_goal.cumsum()
+        df.drop_duplicates(feature, inplace=True, keep='last')
+        df_test.drop_duplicates(feature, inplace=True, keep='last')
+        if df.shape[0] + df_test.shape[0] < 2:
+            return 0, None
+        df['Nnf'] = Nn - df.Nnt
+        df['Nng_false'] = Nng - df.Nng_true
+        df['threshold'] = df[feature].rolling(2).mean().shift(-1)
+        df = df[:-1]
+
+        df['pg_true'] = (df.Nng_true + alpha) / (df.Nnt + 2 * alpha)
+        df['png_true'] = 1 - df.pg_true
+
+        df['pg_false'] = (df.Nng_false + alpha) / (df.Nnf + 2 * alpha)
+        df['png_false'] = 1 - df.pg_false
+
+        df['impurity_true'] = (
+                - goal_normaliser * xlogy(df.pg_true, df.pg_true)
+                - non_goal_normaliser * xlogy(df.png_true, df.png_true))
+        df['impurity_false'] = (
+                - goal_normaliser * xlogy(df.pg_false, df.pg_false)
+                - non_goal_normaliser * xlogy(df.png_false, df.png_false))
+        df['impurity_decrease'] = Nn / N * (
+                impurity - df.Nnt / Nn * df.impurity_true
+                - df.Nnf / Nn * df.impurity_false)
+        df.reset_index(inplace=True)
+        best = df.loc[df.impurity_decrease.idxmax(), :]
+        impurity_decrease = float(best.impurity_decrease)
+        threshold = float(best.threshold)
+        return impurity_decrease, threshold
 
     @staticmethod
     def get_best_threshold(node_samples, feature, N, Nn, Nng, alpha, goal_normaliser, non_goal_normaliser,

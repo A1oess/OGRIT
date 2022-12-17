@@ -1,6 +1,6 @@
 import argparse
 
-from ogrit.decisiontree.dt_goal_recogniser import GeneralisedGrit
+from ogrit.decisiontree.dt_goal_recogniser_removeIndictor import myGOIT
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     else:
         scenario_names = [args.scenario]
 
-    grit = GeneralisedGrit.train(scenario_names,
+    grit = myGOIT.train(scenario_names,
                                  criterion='entropy',
                                  min_samples_leaf=10,
                                  max_depth=7,

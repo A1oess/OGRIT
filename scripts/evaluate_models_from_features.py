@@ -5,8 +5,9 @@ import argparse
 
 from ogrit.core.base import get_base_dir
 from ogrit.core.data_processing import get_dataset
-from ogrit.decisiontree.dt_goal_recogniser import Grit, GeneralisedGrit, UniformPriorGrit, myGOIT, OcclusionGrit, \
-    OcclusionBaseline, NoPossiblyMissingFeaturesGrit, myGeneralisedGrit
+from ogrit.decisiontree.dt_goal_recogniser import Grit, GeneralisedGrit, UniformPriorGrit, OcclusionGrit, \
+    OcclusionBaseline, NoPossiblyMissingFeaturesGrit
+from ogrit.decisiontree.dt_goal_recogniser_removeIndictor import myGOIT,myGeneralisedGrit
 from ogrit.goalrecognition.goal_recognition import PriorBaseline, UniformPriorBaseline
 
 
@@ -30,7 +31,7 @@ def main():
     args = parser.parse_args()
 
     if args.scenario is None:
-        scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg'] # , 'round']
+        scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg', 'round']
     else:
         scenario_names = args.scenario.split(',')
 

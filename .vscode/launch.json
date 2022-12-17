@@ -5,13 +5,50 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "occlusion_grit",
+            "name": "extract both",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args":"--models occlusion_grit"
+            "args": [
+                "--models",
+                "GOIT,occlusion_grit"
+            ]
+        },
+        {
+            "name": "extract GOIT",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--models",
+                "GOIT"
+            ]
+        },
+        {
+            "name": "extract OGRIT",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--models",
+                "occlusion_grit"
+            ]
+        },
+        {
+            "name": "train_GOIT",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+            ]
         }
     ]
 }

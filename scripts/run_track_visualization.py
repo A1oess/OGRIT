@@ -15,6 +15,7 @@ from loguru import logger
 from ogrit.core.tracks_import import read_from_csv
 from ogrit.core.track_visualizer import TrackVisualizer
 from ogrit.decisiontree.dt_goal_recogniser import Grit, HandcraftedGoalTrees, GeneralisedGrit
+from ogrit.decisiontree.dt_goal_recogniser_removeIndictor import myGOIT,myGeneralisedGrit
 from ogrit.goalrecognition.goal_recognition import PriorBaseline
 
 
@@ -101,7 +102,8 @@ if __name__ == '__main__':
     goal_recognisers = {'prior': PriorBaseline,
                         'trained_trees': Grit,
                         'generalised_grit': GeneralisedGrit,
-                        'handcrafted_trees': HandcraftedGoalTrees}
+                        'handcrafted_trees': HandcraftedGoalTrees,
+                        'GOIT' : myGOIT}
 
     if config['goal_recogniser'] is not None:
         goal_recogniser = goal_recognisers[config['goal_recogniser']].load(config['scenario'])
