@@ -39,7 +39,7 @@ for scenario_idx, scenario_name in enumerate(scenario_names):
         plt.xlabel('观测轨迹完成率')
     if scenario_idx == 0 or scenario_idx == 1:
         plt.ylabel('准确率')
-    plt.title('{}'.format(scenario_name))
+    plt.title(title_map[scenario_name])
     marker = itertools.cycle(('^', '+', 'x', 'o', '*'))
 
     for model_name in model_names:
@@ -51,7 +51,7 @@ for scenario_idx, scenario_name in enumerate(scenario_names):
             plt.fill_between(accuracy_sem.fraction_observed, (accuracy + accuracy_sem).model_correct.to_numpy(),
                              (accuracy - accuracy_sem).model_correct.to_numpy(), alpha=0.2)
     plt.ylim([0, 1])
-    plt.legend()
+    plt.legend(loc = "lower right")
     plt.subplots_adjust(wspace =0.2, hspace =0.5)#调整子图间距
 plt.savefig('/home/goose/zhaoxh/OGRIT' + '/images/准确率_ogrit.pdf', bbox_inches='tight')
 
@@ -101,8 +101,7 @@ for scenario_idx, scenario_name in enumerate(scenario_names):
         plt.fill_between(true_goal_prob_sem.fraction_observed, (true_goal_prob + true_goal_prob_sem).true_goal_prob.to_numpy(),
                          (true_goal_prob - true_goal_prob_sem).true_goal_prob.to_numpy(), alpha=0.2)
     plt.ylim([0, 1.1])
-    if scenario_idx == 0:
-        plt.legend()
+    plt.legend(loc = "lower right")
 plt.subplots_adjust(wspace =0.2, hspace =0.5)#调整子图间距
 plt.savefig('/home/goose/zhaoxh/OGRIT' + '/images/真实意图概率_ogrit.pdf', bbox_inches='tight')
 
