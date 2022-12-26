@@ -14,7 +14,7 @@ matplotlib.rc('font', **font)
 
 scenario_names =  ['heckstrasse', 'bendplatz', 'frankenberg', 'round']
 
-model_names = ['GOIT', 'occlusion_baseline'] # ,'occlusion_grit', 'generalised_grit']
+model_names = ['GOIT', 'occlusion_baseline', 'generalised_grit'] # ['GOIT', 'occlusion_baseline','occlusion_grit', 'generalised_grit']
 
 label_map = {'generalised_grit': 'G-GRIT',
              'occlusion_grit': 'OGRIT',
