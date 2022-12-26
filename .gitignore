@@ -136,12 +136,12 @@ dmypy.json
 data/
 data_new/
 data_old/
-images/
+# images/
 videos/
 data_iros/
 images_iros/
 predictions/
-results/
+# results/
 
 # OSM files
 *.osm

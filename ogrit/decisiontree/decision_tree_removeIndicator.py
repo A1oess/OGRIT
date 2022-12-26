@@ -86,11 +86,11 @@ class myNode:
         self.reached = True
         current_node = self
         while current_node.decision is not None:
-            if (terminate_on_missing
-                    and current_node.decision.feature_name in FeatureExtractor.possibly_missing_features):
-                    # and features[FeatureExtractor.possibly_missing_features[current_node.decision.feature_name]]):
-                # feature is missing
-                return current_node.value
+            # if (terminate_on_missing
+            #         and current_node.decision.feature_name in FeatureExtractor.possibly_missing_features):
+            #         # and features[FeatureExtractor.possibly_missing_features[current_node.decision.feature_name]]):
+            #     # feature is missing
+            #     return current_node.value
             current_node = current_node.decision.select_child(features)
             current_node.reached = True
         return current_node.value
