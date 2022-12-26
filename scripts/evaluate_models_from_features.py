@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import argparse
 
 from ogrit.core.base import get_base_dir
-from ogrit.core.data_processing import get_dataset
+from ogrit.core.data_processing import get_dataset, get_occluded_dataset
 from ogrit.decisiontree.dt_goal_recogniser import Grit, GeneralisedGrit, UniformPriorGrit, OcclusionGrit, \
     OcclusionBaseline, NoPossiblyMissingFeaturesGrit
 from ogrit.decisiontree.dt_goal_recogniser_removeIndictor import myGOIT,myGeneralisedGrit
@@ -64,7 +64,8 @@ def main():
     dataset_name = 'test'
 
     for scenario_name in scenario_names:
-        dataset = get_dataset(scenario_name, dataset_name)
+        # dataset = get_dataset(scenario_name, dataset_name)
+        dataset = get_occluded_dataset(scenario_name, dataset_name)
 
         dataset = drop_low_sample_agents(dataset, 2)
         dataset_predictions = {}

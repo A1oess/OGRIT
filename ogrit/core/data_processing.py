@@ -44,6 +44,32 @@ def get_dataset(scenario_name, subset='train', features=True):
                                             ].drop_duplicates().reset_index()
         return unique_training_samples
 
+def get_occluded_dataset(scenario_name, subset='train', features=True):
+
+    data_set_splits = load_dataset_splits()
+    episode_idxes = data_set_splits[scenario_name][subset]
+    episode_training_sets = []
+
+    for episode_idx in episode_idxes:
+        episode_training_set = pd.read_csv(
+            get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx, subset))
+        episode_training_set['episode'] = episode_idx
+        print(episode_training_set.size)
+        indice = ((episode_training_set['vehicle_in_front_missing'] == True)
+                  | (episode_training_set['oncoming_vehicle_missing'] == True))
+        episode_occluded_training_set = episode_training_set[indice]
+        print(episode_occluded_training_set.size)
+        episode_training_sets.append(episode_occluded_training_set)
+    training_set = pd.concat(episode_training_sets)
+
+    if features:
+        return training_set
+    else:
+        unique_training_samples = training_set[['episode', 'agent_id', 'initial_frame_id', 'frame_id',
+                                            'true_goal', 'true_goal_type', 'fraction_observed']
+                                            ].drop_duplicates().reset_index()
+        return unique_training_samples
+
 
 def get_multi_scenario_dataset(scenario_names: List[str], subset='train') -> pd.DataFrame:
     scenario_datasets = []
