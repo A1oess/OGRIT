@@ -192,8 +192,6 @@ class myGeneralisedGrit(GoalRecogniser):
         # for indicator in self.feature_extractor.indicator_features:
         #     if indicator in features.keys():
         #         features.pop(indicator)
-        print(type(features))
-        print(features)
         self.decision_trees[features['goal_type']].reset_reached()
         likelihood = self.decision_trees[features['goal_type']].traverse(features)
         return likelihood

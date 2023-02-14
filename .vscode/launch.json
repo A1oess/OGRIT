@@ -25,7 +25,9 @@
             "justMyCode": true,
             "args": [
                 "--models",
-                "GOIT"
+                "GOIT",
+                "--scenario",
+                "heckstrasse"
             ]
         },
         {

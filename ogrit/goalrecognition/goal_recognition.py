@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.special import xlogy
+import time
 
 from igp2.data.scenario import ScenarioConfig
 from igp2.opendrive.map import Map
