@@ -56,7 +56,9 @@ class GoalGenerator:
                         open_set.append(lane_sequence + [neighbour])
             else:
                 goal_radius = lane.get_width_at(lane.length) / 2
+                goal_location = lane.link.successor[0].midline.coords[-1]
                 goal = PointGoal(goal_location, goal_radius)
+                lane_sequence += [lane.link.successor[0]]
                 typed_goal = TypedGoal(goal_type, goal, lane_sequence)
                 typed_goals.append(typed_goal)
 
@@ -88,7 +90,7 @@ class GoalGenerator:
         heading = trajectory.heading[-1]
         possible_lanes = scenario_map.lanes_within_angle(position, heading, np.pi/4,
                                                          drivable_only=True, max_distance=3)
-
+        print(possible_lanes)
         lane_goals = [self.generate_goals_from_lane(l, scenario_map, visible_region) for l in possible_lanes]
 
         # get list of typed goals for each goal locations

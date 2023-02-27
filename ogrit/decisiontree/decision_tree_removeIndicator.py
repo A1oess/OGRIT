@@ -27,8 +27,8 @@ class myDecision:
 
     def select_child(self, features):
         possibly_missing_features = FeatureExtractor.possibly_missing_features
-        if (self.feature_name in possibly_missing_features and 
-            features[FeatureExtractor.possibly_missing_features[self.feature_name]] is True):
+        if (self.feature_name in possibly_missing_features) : # and 
+            # features[FeatureExtractor.possibly_missing_features[self.feature_name]] is True):
             if self.direction_flag == 'leftt':
                 return self.true_child
             elif self.direction_flag == 'rightt':
