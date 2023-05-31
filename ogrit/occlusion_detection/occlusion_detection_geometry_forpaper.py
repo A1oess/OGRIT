@@ -69,14 +69,14 @@ class OcclusionDetector2D:
     def get_occlusions_frame(self, frame):
         frame_occlusions = {}
         print(frame.keys())
-        frame.pop(7)
-        # frame.pop(11)
-        # frame.pop(12)
-        # frame.pop(14)
-        # frame.pop(15)
-        # frame.pop(16)
-        # frame.pop(17)
-        # frame.pop(18)
+        frame.pop(9)
+        frame.pop(11)
+        frame.pop(12)
+        frame.pop(14)
+        frame.pop(15)
+        frame.pop(16)
+        frame.pop(17)
+        frame.pop(18)
         vehicles_in_frame = [(vehicle_id, frame.get(vehicle_id)) for vehicle_id in frame.keys()]
 
         # Get the boundaries of each of the vehicles.
