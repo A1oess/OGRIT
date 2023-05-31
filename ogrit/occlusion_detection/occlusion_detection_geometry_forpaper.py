@@ -56,9 +56,11 @@ class OcclusionDetector2D:
 
         for frame_id, frame in enumerate(episode_frames):
             print(f"Starting frame {frame_id}/{len(episode_frames) - 1}")
-
+            if frame_id < 4:
+                continue
             all_occlusion_data[frame_id] = self.get_occlusions_frame(frame)
             print("frame_id = ", frame_id)
+            
             if frame_id > 4:
                 break
 
@@ -70,13 +72,13 @@ class OcclusionDetector2D:
         frame_occlusions = {}
         print(frame.keys())
         frame.pop(9)
-        frame.pop(11)
-        frame.pop(12)
-        frame.pop(14)
         frame.pop(15)
-        frame.pop(16)
-        frame.pop(17)
-        frame.pop(18)
+        frame.pop(4)
+        frame.pop(5)
+        # frame.pop(15)
+        # frame.pop(16)
+        # frame.pop(17)
+        # frame.pop(18)
         vehicles_in_frame = [(vehicle_id, frame.get(vehicle_id)) for vehicle_id in frame.keys()]
 
         # Get the boundaries of each of the vehicles.
@@ -234,9 +236,9 @@ class OcclusionDetector2D:
 
         if frame:
             for aid, state in frame.items():
-                pass
-                # plt.plot(*state.position, marker="x")
-                # plt.text(*state.position, aid)
+                # pass
+                plt.plot(*state.position, marker="x")
+                plt.text(*state.position, aid)
 
         if obstacles:
             for obstacle in obstacles:
