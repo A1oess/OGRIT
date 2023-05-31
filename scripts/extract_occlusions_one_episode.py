@@ -1,6 +1,6 @@
 import argparse
 
-from ogrit.occlusion_detection.occlusion_detection_geometry import OcclusionDetector2D
+from ogrit.occlusion_detection.occlusion_detection_geometry_forpaper import OcclusionDetector2D
 from ogrit.core.base import create_folders
 
 
